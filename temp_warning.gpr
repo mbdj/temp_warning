@@ -1,0 +1,35 @@
+with "config/temp_warning_config.gpr";
+with "pico_bsp.gpr";
+
+
+project Temp_Warning is
+
+   for Target use "arm-eabi";
+   for Runtime ("ada") use "light-cortex-m0p";
+   for Source_Dirs use ("C:/Users/mbdj/Dev/Ada/PICO/temp_warning/src", "C:/Users/mbdj/Dev/Ada/PICO/temp_warning/config", "C:\Users\mbdj\Dev\PICO\synack_misc\src");
+   for Object_Dir use "obj/" & Temp_Warning_Config.Build_Profile;
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use ("temp_warning.adb");
+
+   package Linker is
+      for Switches ("ada") use Pico_Bsp.Linker_Switches;
+   end Linker;
+
+   package Compiler is
+      for Default_Switches ("ada") use ("-Og", "-ffunction-sections", "-fdata-sections", "-g", "-gnat2022", "-gnatVa", "-gnatwa.X", "-gnatyaABbc-defhiIklM79nOprStux");
+   end Compiler;
+
+   package Binder is
+      for Switches ("ada") use ("-Es"); --  Symbolic traceback
+   end Binder;
+
+   package Install is
+      for Artifacts (".") use ("share");
+   end Install;
+
+   package Ide is
+      for Vcs_Kind use "git";
+   end Ide;
+
+end Temp_Warning;
