@@ -12,10 +12,10 @@ procedure Temp_Warning is
    use RP.GPIO;
 
    --  nombre de mesures à la hausse avant l'alerte
-   number_of_Measures                              : constant Natural := 9;
+   Number_Of_Measures                              : constant Natural := 9;
 
    Temperature, Last_Minimum_Temperature          : RP.ADC.Celsius;
-   Counter_Elevation_Temperature                  : Natural := number_of_Measures;
+   Counter_Elevation_Temperature                  : Natural := Number_Of_Measures;
 
    Buzzer : GPIO_Point renames Pico.GP2;
 
@@ -129,12 +129,21 @@ procedure Temp_Warning is
    end Read_Temperature;
 
 
-   procedure Beep (Ms : Integer := 100) is
+   procedure Beep (Ms : Integer := 100; Number_Of_Beeps : Positive := 1) is
+      Beep_counter : Positive := 0;
    begin
-      --  beep
-      Buzzer.Toggle;
-      RP.Device.Timer.Delay_Milliseconds (Ms);
-      Buzzer.Toggle;
+      loop
+         --  beep
+         Buzzer.Toggle;
+         RP.Device.Timer.Delay_Milliseconds (Ms);
+         Buzzer.Toggle;
+
+         Beep_counter := Beep_counter + 1;
+
+         exit when Beep_counter = Number_Of_Beeps;
+
+         RP.Device.Timer.Delay_Milliseconds (Ms);
+      end loop;
    end;
 
 begin
@@ -201,7 +210,7 @@ begin
          --  if the temperature stabilizes but no longer decreases we alert with one beep
       elsif Temperature = Last_Minimum_Temperature then
          Last_Minimum_Temperature := Temperature;
-         Counter_Elevation_Temperature := number_of_Measures;
+         Counter_Elevation_Temperature := Number_Of_Measures;
 
          Beep;
 
@@ -210,9 +219,8 @@ begin
          --  until its reachs minimum temperature before number_of_Measures measures
          --  or otherwise we send warning
          Counter_Elevation_Temperature := @ -1;
-         Beep;
-         RP.Device.Timer.Delay_Milliseconds (100);
-         Beep;
+
+         Beep (Number_Of_Beeps => 2);
 
       end if;
 
