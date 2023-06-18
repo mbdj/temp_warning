@@ -11,10 +11,10 @@ with Ada.Characters.Latin_1;  --  for New_Line
 procedure Temp_Warning is
    use RP.GPIO;
 
-   --  nombre de mesures lues à la hausse avant l'alerte
+   --  nombre de mesures à la hausse avant l'alerte
    Nombre_De_Mesures                              : constant Natural := 9;
 
-   Temperature, Derniere_Temperature_De_Reference : RP.ADC.Celsius;
+   Temperature, Last_Minimum_Temperature          : RP.ADC.Celsius;
    Compteur_Elevation_Temperature                 : Natural := Nombre_De_Mesures;
 
    Buzzer : GPIO_Point renames Pico.GP2;
@@ -114,7 +114,7 @@ procedure Temp_Warning is
    end;
 
 
-   -- plusieurs lectures sont faites et la moyenne est retournée
+   --  plusieurs mesures sont faites et la moyenne est retournée
    function Read_Temperature return RP.ADC.Celsius is
       use RP.ADC;
       T : RP.ADC.Celsius := 0;
@@ -130,7 +130,7 @@ procedure Temp_Warning is
 
    procedure Beep (Ms : Integer := 100) is
    begin
-      -- beep
+      --  beep
       Buzzer.Toggle;
       RP.Device.Timer.Delay_Milliseconds (Ms);
       Buzzer.Toggle;
@@ -168,9 +168,9 @@ begin
              Data   => Data,
              Status => Status);
 
-   --  au démarrage on attend que la température se stabilise car le Pico qui vient d'être
-   --  branché va voir sa température augmenter
-   for I in 1 .. 2 loop
+   --  at the start we wait for the temperature to stabilize
+   --  because when the Pico is plugged in its temperature can increase
+   for I in 1 .. 10 loop
       Temperature := Read_Temperature;
 
       Afficher_Temperature (Temp   => Temperature,
@@ -183,9 +183,9 @@ begin
              Data   => Data,
              Status => Status);
 
-   Derniere_Temperature_De_Reference := Read_Temperature;
+   Last_Minimum_Temperature := Read_Temperature;
 
-   Afficher_Temperature (Temp   => Derniere_Temperature_De_Reference,
+   Afficher_Temperature (Temp   => Last_Minimum_Temperature,
                          Data   => Data,
                          Status => Status);
 
@@ -197,17 +197,22 @@ begin
                             Data   => Data,
                             Status => Status);
 
-      if Temperature < Derniere_Temperature_De_Reference then
-         Derniere_Temperature_De_Reference := Temperature;
+      --  if temperature decreases we reset the counter et no beep
+      if Temperature < Last_Minimum_Temperature then
+         Last_Minimum_Temperature := Temperature;
          Compteur_Elevation_Temperature := Nombre_De_Mesures;
 
-      elsif Temperature = Derniere_Temperature_De_Reference then
-         Derniere_Temperature_De_Reference := Temperature;
+         --  if the temperature stabilizes but no longer decreases we alert with one beep
+      elsif Temperature = Last_Minimum_Temperature then
+         Last_Minimum_Temperature := Temperature;
          Compteur_Elevation_Temperature := Nombre_De_Mesures;
 
          Beep;
 
-      else --  Temperature > Derniere_Temperature_De_Reference
+      else --  Temperature > Last_Minimum_Temperature
+         --  if temperature increases we alert with two beeps
+         --  until its reachs minimum temperature before Nombre_De_Mesures measures
+         --  or otherwise we send warning
          Compteur_Elevation_Temperature := @ -1;
          Beep;
          RP.Device.Timer.Delay_Milliseconds (100);
@@ -223,7 +228,8 @@ begin
 
    end loop;
 
-   --  triggers buzzer warning
+   --  the temperature has not returned to the minimum temperature after Nombre_De_Mesures measures
+   --  so we trigger warning buzzer
    loop
       Buzzer.Toggle;
       RP.Device.Timer.Delay_Milliseconds (200);
