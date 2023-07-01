@@ -11,8 +11,7 @@ with RP.UART;
 with Buzzer;
 with Uart_Sending; use UART_Sending;
 
-procedure Temp_Warning
-  with SPARK_Mode => On is
+procedure Temp_Warning with SPARK_Mode => On is
 
    use RP.GPIO;
 
@@ -39,7 +38,7 @@ procedure Temp_Warning
 
    function Read_Temperature return RP.ADC.Celsius is
       use RP.ADC;
-      T : RP.ADC.Celsius := 0;
+      T                  : RP.ADC.Celsius := 0;
       Number_Of_Measures : constant Positive := 10;
    begin
       --  some measures are done and the average is returned
@@ -87,20 +86,20 @@ begin
       UART_Sending.UART_Send_Temperature (Temperature   => Temperature,
                                           Port          => UART_0,
                                           Status        => Status);
+
       RP.Device.Timer.Delay_Milliseconds (Waiting_Delay_Ms);
    end loop;
 
-   UART_Sending.UART_Send (Message    => Type_Message ("--" & New_Line),
+   UART_Sending.UART_Send (Message => Type_Message ("--" & New_Line),
                            Port => UART_0,
-                           Status     => Status);
+                           Status => Status);
 
+   --  Read the reference temperature
    Last_Minimum_Temperature := Read_Temperature;
 
-   UART_Sending.UART_Send_Temperature (Temperature   => Last_Minimum_Temperature,
+   UART_Sending.UART_Send_Temperature (Temperature => Last_Minimum_Temperature,
                                        Port => UART_0,
-                                       Status        => Status);
-
-
+                                       Status => Status);
 
    loop
       RP.Device.Timer.Delay_Milliseconds (Waiting_Delay_Ms);
@@ -118,13 +117,14 @@ begin
          Counter_Elevation_Temperature := Number_Of_Measures_Before_Alert;
          Counter_Stabilization_Temperature := Number_Of_Measures_Before_Alert;
 
-         --  if the temperature stabilizes but no longer decreases after some times (Counter_Stabilization_Temperature)
-         --  we alert with one beep
+         --  if the temperature stabilizes but no longer decreases after some times
+         --  (Counter_Stabilization_Temperature) then we alert with one beep
       elsif Temperature = Last_Minimum_Temperature then
          Last_Minimum_Temperature := Temperature;
 
          Counter_Elevation_Temperature := Number_Of_Measures_Before_Alert;
-         Counter_Stabilization_Temperature := (if @ > 0 then @ -1 else 0);
+         --  Counter_Stabilization_Temperature := (if @ > 0 then @ -1 else 0);
+         Counter_Stabilization_Temperature := @ -1;
 
 
          if Counter_Stabilization_Temperature = 0 then

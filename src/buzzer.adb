@@ -10,9 +10,9 @@ package body Buzzer is
    begin
       loop
          --  beep
-         Buzzer.Toggle;
+         Buzzer.Set;
          RP.Device.Timer.Delay_Milliseconds (Ms);
-         Buzzer.Toggle;
+         Buzzer.Clear;
 
          Beep_Counter := Beep_Counter + 1;
 
