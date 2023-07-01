@@ -6,158 +6,58 @@ with RP.ADC; use RP.ADC;
 
 with HAL.UART;
 with RP.UART;
-with Ada.Characters.Latin_1;  --  for New_Line
 
-procedure Temp_Warning is
+
+with Buzzer;
+with Uart_Sending; use UART_Sending;
+
+procedure Temp_Warning
+  with SPARK_Mode => On is
+
    use RP.GPIO;
 
-   --  nombre de mesures à la hausse avant l'alerte
-   Number_Of_Measures                              : constant Natural := 9;
+   --  number of times before sending alert
+   Number_Of_Measures_Before_Alert : constant Natural := 9;
+   Waiting_Delay_Ms                : constant Positive := 5000;
 
-   Temperature, Last_Minimum_Temperature          : RP.ADC.Celsius;
-   Counter_Elevation_Temperature                  : Natural := Number_Of_Measures;
+   Temperature, Last_Minimum_Temperature : RP.ADC.Celsius;
+   Counter_Elevation_Temperature         : Natural := Number_Of_Measures_Before_Alert;
+   Counter_Stabilization_Temperature     : Natural := Number_Of_Measures_Before_Alert;
 
-   Buzzer : GPIO_Point renames Pico.GP2;
+
 
    --  UART
-   UART_TX : GPIO_Point renames Pico.GP0;
-   Port    : RP.UART.UART_Port renames RP.Device.UART_0;
-
-   New_Line : constant String := [1 => Ada.Characters.Latin_1.LF , 2 => Ada.Characters.Latin_1.CR];
-   type Type_Message is new String (1 .. 4);  -- 2 characters plus new line (2 chars)
-
-   Status   : HAL.UART.UART_Status;
-
-
-   procedure UART_Send (Message    : in Type_Message;
-                        Status     : out HAL.UART.UART_Status) is
-      Msg      : Type_Message;
-      Data     : HAL.UART.UART_Data_8b (Msg'Range)
-        with Address => Msg'Address;
-   begin
-      Msg := Message;
-      Port.Transmit (Data, Status, Timeout => 0);
-   end;
-
-   procedure UART_Send_Temperature (Temperature       : in RP.ADC.Celsius;
-                                    Status            : out HAL.UART.UART_Status) is
-
-      function String_Message (T : RP.ADC.Celsius) return Type_Message is
-         use RP.ADC;
-         Msg : Type_Message;
-      begin
-
-         case T is
-         when 17 => Msg := Type_Message ("17" & New_Line);
-         when 18 => Msg := Type_Message ("18" & New_Line);
-         when 19 => Msg := Type_Message ("19" & New_Line);
-         when 20 => Msg := Type_Message ("20" & New_Line);
-         when 21 => Msg := Type_Message ("21" & New_Line);
-         when 22 => Msg := Type_Message ("22" & New_Line);
-         when 23 => Msg := Type_Message ("23" & New_Line);
-         when 24 => Msg := Type_Message ("24" & New_Line);
-         when 25 => Msg := Type_Message ("25" & New_Line);
-         when 26 => Msg := Type_Message ("26" & New_Line);
-         when 27 => Msg := Type_Message ("27" & New_Line);
-         when 28 => Msg := Type_Message ("28" & New_Line);
-         when 29 => Msg := Type_Message ("29" & New_Line);
-         when 30 => Msg := Type_Message ("30" & New_Line);
-         when 31 => Msg := Type_Message ("31" & New_Line);
-         when 32 => Msg := Type_Message ("32" & New_Line);
-         when 33 => Msg := Type_Message ("33" & New_Line);
-         when 34 => Msg := Type_Message ("34" & New_Line);
-         when 35 => Msg := Type_Message ("35" & New_Line);
-         when 36 => Msg := Type_Message ("36" & New_Line);
-         when 37 => Msg := Type_Message ("37" & New_Line);
-         when 38 => Msg := Type_Message ("38" & New_Line);
-         when 39 => Msg := Type_Message ("39" & New_Line);
-         when others => Msg := Type_Message ("99" & New_Line);
-         end case;
-
-         if T < 17 then
-            Msg := Type_Message ("<<" & New_Line);
-         elsif T > 39 then
-            Msg := Type_Message (">>" & New_Line);
-         end if;
-
-         return Msg;
-
-      end String_Message;
-
-   begin
-      UART_Send (Message      => String_Message (Temperature),
-                 Status       => Status);
-   end;
+   UART_TX   : GPIO_Point renames Pico.GP0;
+   UART_0    : RP.UART.UART_Port renames RP.Device.UART_0;
+   Status    : HAL.UART.UART_Status;
 
 
 
-   procedure UART_Send_Counter (N          : in Integer;
-                                Status     : out HAL.UART.UART_Status) is
-      Message : Type_Message;
-   begin
+   ----------------------
+   -- Read_Temperature --
+   ----------------------
 
-      case N is
-         when 0 => Message := Type_Message ("0!" & New_Line);
-         when 1 => Message := Type_Message ("1!" & New_Line);
-         when 2 => Message := Type_Message ("2!" & New_Line);
-         when 3 => Message := Type_Message ("3!" & New_Line);
-         when 4 => Message := Type_Message ("4!" & New_Line);
-         when 5 => Message := Type_Message ("5!" & New_Line);
-         when 6 => Message := Type_Message ("6!" & New_Line);
-         when 7 => Message := Type_Message ("7!" & New_Line);
-         when 8 => Message := Type_Message ("8!" & New_Line);
-         when 9 => Message := Type_Message ("9!" & New_Line);
-         when others => Message := Type_Message ("ER" & New_Line);
-      end case;
-
-      UART_Send (Message      => Message,
-                 Status       => Status);
-   end;
-
-
-   --  20 mesures sont faites et la moyenne est retournée
    function Read_Temperature return RP.ADC.Celsius is
       use RP.ADC;
       T : RP.ADC.Celsius := 0;
+      Number_Of_Measures : constant Positive := 10;
    begin
-      for I in 1 .. 20 loop
+      --  some measures are done and the average is returned
+      for I in 1 .. Number_Of_Measures loop
          T := T + RP.ADC.Temperature;
-         RP.Device.Timer.Delay_Milliseconds (500);
+         RP.Device.Timer.Delay_Milliseconds (200);
       end loop;
 
-      return RP.ADC.Celsius (Integer (T) / 20);
+      return RP.ADC.Celsius (Integer (T) / Number_Of_Measures);
+
    end Read_Temperature;
 
 
-   procedure Beep (Ms : Integer := 100; Number_Of_Beeps : Positive := 1) is
-      Beep_counter : Positive := 0;
-   begin
-      loop
-         --  beep
-         Buzzer.Toggle;
-         RP.Device.Timer.Delay_Milliseconds (Ms);
-         Buzzer.Toggle;
-
-         Beep_counter := Beep_counter + 1;
-
-         exit when Beep_counter = Number_Of_Beeps;
-
-         RP.Device.Timer.Delay_Milliseconds (Ms);
-      end loop;
-   end;
 
 begin
    --
    --  Initializations
    --
-
-   --  warning buzzer
-   Buzzer.Configure
-     (Mode       => Output,
-      Pull       => Pull_Down,
-      Func       => SIO,
-      Schmitt    => True,
-      Slew_Fast  => False);
 
    --  for Delay_Milliseconds
    RP.Device.Timer.Enable;
@@ -172,69 +72,91 @@ begin
    RP.ADC.Enable;  --  après initialisation de Clock sinon plante !
 
    --  The default config is 115200 8n1, this example just overrides the baud rate
-   Port.Configure (Config => (Baud => 115200, others => <>));
+   Uart_0.Configure (Config => (Baud => 115200, others => <>));
 
-   UART_Send (Message    => Type_Message ("==" & New_Line),
-              Status => Status);
+   UART_Sending.UART_Send (Message    => Type_Message ("==" & New_Line),
+                           Port => UART_0,
+                           Status     => Status);
+
 
    --  at the start we wait for the temperature to stabilize
    --  because when the Pico is plugged in its temperature can increase
-   for I in 1 .. 2 loop
+   for I in 1 .. 10 loop
       Temperature := Read_Temperature;
 
-      UART_Send_Temperature (Temperature   => Temperature,
-                             Status        => Status);
-      RP.Device.Timer.Delay_Milliseconds (1000);
+      UART_Sending.UART_Send_Temperature (Temperature   => Temperature,
+                                          Port          => UART_0,
+                                          Status        => Status);
+      RP.Device.Timer.Delay_Milliseconds (Waiting_Delay_Ms);
    end loop;
 
-   UART_Send (Message    => Type_Message ("--" & New_Line),
-              Status => Status);
+   UART_Sending.UART_Send (Message    => Type_Message ("--" & New_Line),
+                           Port => UART_0,
+                           Status     => Status);
 
    Last_Minimum_Temperature := Read_Temperature;
 
-   UART_Send_Temperature (Temperature   => Last_Minimum_Temperature,
-                          Status => Status);
+   UART_Sending.UART_Send_Temperature (Temperature   => Last_Minimum_Temperature,
+                                       Port => UART_0,
+                                       Status        => Status);
+
+
 
    loop
-      RP.Device.Timer.Delay_Milliseconds (500);
+      RP.Device.Timer.Delay_Milliseconds (Waiting_Delay_Ms);
       Temperature := Read_Temperature;
 
-      UART_Send_Temperature (Temperature   => Temperature,
-                             Status        => Status);
+      UART_Sending.UART_Send_Temperature (Temperature   => Temperature,
+                                          Port          => UART_0,
+                                          Status        => Status);
 
-      --  if temperature decreases we reset the counter et no beep
+      --  if temperature decreases we reset the counter and no beep
       if Temperature < Last_Minimum_Temperature then
          Last_Minimum_Temperature := Temperature;
-         Counter_Elevation_Temperature := Number_Of_Measures;
 
-         --  if the temperature stabilizes but no longer decreases we alert with one beep
+         --  re-init counters
+         Counter_Elevation_Temperature := Number_Of_Measures_Before_Alert;
+         Counter_Stabilization_Temperature := Number_Of_Measures_Before_Alert;
+
+         --  if the temperature stabilizes but no longer decreases after some times (Counter_Stabilization_Temperature)
+         --  we alert with one beep
       elsif Temperature = Last_Minimum_Temperature then
          Last_Minimum_Temperature := Temperature;
-         Counter_Elevation_Temperature := Number_Of_Measures;
 
-         Beep;
+         Counter_Elevation_Temperature := Number_Of_Measures_Before_Alert;
+         Counter_Stabilization_Temperature := (if @ > 0 then @ -1 else 0);
+
+
+         if Counter_Stabilization_Temperature = 0 then
+            Buzzer.Beep;
+         end if;
 
       else --  Temperature > Last_Minimum_Temperature
          --  if temperature increases we alert with two beeps
-         --  until its reachs minimum temperature before number_of_Measures measures
+         --  until it reachs minimum temperature before Number_Of_Measures_before_alert measures
          --  or otherwise we send warning
          Counter_Elevation_Temperature := @ -1;
 
-         Beep (Number_Of_Beeps => 2);
+         Buzzer.Beep (Number_Of_Beeps => 2);
 
       end if;
 
-      UART_Send_Counter (Counter_Elevation_Temperature,
-                         Status => Status);
+      UART_Sending.UART_Send_Counter (Counter_Elevation_Temperature,
+                                      Port   => UART_0,
+                                      Status => Status);
+
+      UART_Sending.UART_Send_Counter (Counter_Stabilization_Temperature,
+                                      Port   => UART_0,
+                                      Status => Status);
 
       exit when Counter_Elevation_Temperature = 0;
 
    end loop;
 
-   --  the temperature has not returned to the minimum temperature after number_of_Measures measures
+   --  the temperature has not returned to the minimum temperature after Number_Of_Measures_before_alert measures
    --  so we trigger warning buzzer
    loop
-      Buzzer.Toggle;
+      Buzzer.Beep;
       RP.Device.Timer.Delay_Milliseconds (200);
    end loop;
 
