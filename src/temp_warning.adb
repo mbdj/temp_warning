@@ -7,6 +7,8 @@ with RP.ADC; use RP.ADC;
 with HAL.UART;
 with RP.UART;
 
+with package_Read_Temperature; use package_Read_Temperature;
+
 
 with Buzzer; use Buzzer;
 with Uart_Sending; use UART_Sending;
@@ -17,7 +19,7 @@ procedure Temp_Warning is
 
    --  number of times before sending alert
    Number_Of_Measures_Before_Alert : constant Natural := 9;
-   Waiting_Delay_Ms                : constant Positive := 5000;
+   Waiting_Delay_Ms                : constant Positive := 10000;  --  10 s
 
    Temperature, Last_Minimum_Temperature : RP.ADC.Celsius;
    Counter_Elevation_Temperature         : Natural := Number_Of_Measures_Before_Alert;
@@ -33,26 +35,6 @@ procedure Temp_Warning is
 
    --  Buzzer
    Alarm_Buzzer : Type_Buzzer;
-
-   ----------------------
-   -- Read_Temperature --
-   ----------------------
-
-   function Read_Temperature return RP.ADC.Celsius is
-      use RP.ADC;
-      T                  : RP.ADC.Celsius := 0;
-      Number_Of_Measures : constant Positive := 10;
-   begin
-      --  some measures are done and the average is returned
-      for I in 1 .. Number_Of_Measures loop
-         T := T + RP.ADC.Temperature;
-         RP.Device.Timer.Delay_Milliseconds (200);
-      end loop;
-
-      return RP.ADC.Celsius (Integer (T) / Number_Of_Measures);
-
-   end Read_Temperature;
-
 
 
 begin
