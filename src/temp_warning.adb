@@ -8,10 +8,10 @@ with HAL.UART;
 with RP.UART;
 
 
-with Buzzer;
+with Buzzer; use Buzzer;
 with Uart_Sending; use UART_Sending;
 
-procedure Temp_Warning with SPARK_Mode => On is
+procedure Temp_Warning is
 
    use RP.GPIO;
 
@@ -31,6 +31,8 @@ procedure Temp_Warning with SPARK_Mode => On is
    Status    : HAL.UART.UART_Status;
 
 
+   --  Buzzer
+   Alarm_Buzzer : Type_Buzzer;
 
    ----------------------
    -- Read_Temperature --
@@ -57,6 +59,9 @@ begin
    --
    --  Initializations
    --
+
+   --  buzzer
+   Alarm_Buzzer.Configure (Pin => Pico.GP2);
 
    --  for Delay_Milliseconds
    RP.Device.Timer.Enable;
@@ -123,12 +128,10 @@ begin
          Last_Minimum_Temperature := Temperature;
 
          Counter_Elevation_Temperature := Number_Of_Measures_Before_Alert;
-         --  Counter_Stabilization_Temperature := (if @ > 0 then @ -1 else 0);
-         Counter_Stabilization_Temperature := @ -1;
-
+         Counter_Stabilization_Temperature := (if @ > 0 then @ -1 else 0);
 
          if Counter_Stabilization_Temperature = 0 then
-            Buzzer.Beep;
+            Alarm_Buzzer.Beep;
          end if;
 
       else --  Temperature > Last_Minimum_Temperature
@@ -136,8 +139,9 @@ begin
          --  until it reachs minimum temperature before Number_Of_Measures_before_alert measures
          --  or otherwise we send warning
          Counter_Elevation_Temperature := @ -1;
+         Counter_Stabilization_Temperature := (if @ > 0 then @ -1 else 0);
 
-         Buzzer.Beep (Number_Of_Beeps => 2);
+         Alarm_Buzzer.Beep (Number_Of_Beeps => 2);
 
       end if;
 
@@ -156,7 +160,7 @@ begin
    --  the temperature has not returned to the minimum temperature after Number_Of_Measures_before_alert measures
    --  so we trigger warning buzzer
    loop
-      Buzzer.Beep;
+      Alarm_Buzzer.Beep;
       RP.Device.Timer.Delay_Milliseconds (200);
    end loop;
 
